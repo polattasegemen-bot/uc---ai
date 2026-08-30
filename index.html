@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Üç AI Bir Arada</title>
+<style>
+  :root{
+    --bg: #101014;
+    --panel: #17171d;
+    --panel-2: #1e1e26;
+    --border: #2a2a34;
+    --text: #eceaf0;
+    --muted: #9491a3;
+    --gemini: #4d8dff;
+    --groq: #ff6b4d;
+    --openrouter: #7fe08a;
+    --accent: #b39dff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+  }
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  header {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--panel), var(--bg));
+  }
+  header h1 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  header p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .keys {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--panel);
+  }
+  .keys.open { display: flex; }
+  .key-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .key-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .key-row input {
+    flex: 1;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    min-width: 0;
+  }
+  .key-row label {
+    width: 84px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .keys-toggle {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 12.5px;
+    padding: 10px 16px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .user-msg {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #14101f;
+    padding: 9px 13px;
+    border-radius: 14px 14px 2px 14px;
+    max-width: 85%;
+    font-size: 14.5px;
+    font-weight: 500;
+  }
+
+  .answers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .card.gemini { border-left-color: var(--gemini); }
+  .card.groq { border-left-color: var(--groq); }
+  .card.openrouter { border-left-color: var(--openrouter); }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .card-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .card.gemini .card-name { color: var(--gemini); }
+  .card.groq .card-name { color: var(--groq); }
+  .card.openrouter .card-name { color: var(--openrouter); }
+
+  .card-status {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .card-body {
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .card-body.error { color: #ff8080; }
+  .card-body.loading { color: var(--muted); }
+
+  .dots span {
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: var(--muted);
+    border-radius: 50%;
+    margin-right: 3px;
+    animation: blink 1.2s infinite ease-in-out;
+  }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+  footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    gap: 8px;
+  }
+  footer textarea {
+    flex: 1;
+    resize: none;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 14.5px;
+    font-family: inherit;
+    max-height: 100px;
+  }
+  footer button {
+    background: var(--accent);
+    color: #14101f;
+    border: none;
+    border-radius: 12px;
+    padding: 0 18px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  footer button:disabled {
+    opacity: 0.5;
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 13.5px;
+    text-align: center;
+    margin-top: 40px;
+    line-height: 1.6;
+    padding: 0 20px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Üç AI Bir Arada</h1>
+    <p>Tek mesaj, 3 farklı ücretsiz yapay zekadan cevap</p>
+  </header>
+
+  <button class="keys-toggle" id="keysToggle">🔑 API anahtarlarını gir / düzenle</button>
+  <div class="keys" id="keysPanel">
+    <div class="key-row">
+      <span class="key-dot" style="background:var(--gemini)"></span>
+      <label>Gemini</label>
+      <input type="password" id="key-gemini" placeholder="Gemini API anahtarı">
+    </div>
+    <div class="key-row">
+      <span class="key-dot" style="background:var(--groq)"></span>
+      <label>Groq</label>
+      <input type="password" id="key-groq" placeholder="Groq API anahtarı">
+    </div>
+    <div class="key-row">
+      <span class="key-dot" style="background:var(--openrouter)"></span>
+      <label>OpenRouter</label>
+      <input type="password" id="key-openrouter" placeholder="OpenRouter API anahtarı">
+    </div>
+  </div>
+
+  <main id="main">
+    <div class="empty" id="emptyState">
+      Önce yukarıdan en az bir API anahtarı girin, sonra aşağıya mesajınızı yazıp gönderin.<br><br>
+      Anahtarlar sadece bu sayfa açıkken tarayıcınızın hafızasında tutulur, hiçbir yere kaydedilmez — sayfayı kapatınca silinir.
+    </div>
+  </main>
+
+  <footer>
+    <textarea id="input" placeholder="Mesajınızı yazın..." rows="1"></textarea>
+    <button id="sendBtn">Gönder</button>
+  </footer>
+</div>
+
+<script>
+const keysToggle = document.getElementById('keysToggle');
+const keysPanel = document.getElementById('keysPanel');
+keysToggle.addEventListener('click', () => keysPanel.classList.toggle('open'));
+keysPanel.classList.add('open'); // start open so first-time users see it
+
+const main = document.getElementById('main');
+const emptyState = document.getElementById('emptyState');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+});
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+sendBtn.addEventListener('click', send);
+
+function getKey(id) {
+  return document.getElementById(id).value.trim();
+}
+
+async function callGemini(key, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }]
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'İstek başarısız');
+  const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '(boş cevap)';
+  return text;
+}
+
+async function callGroq(key, prompt) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'İstek başarısız');
+  return data?.choices?.[0]?.message?.content || '(boş cevap)';
+}
+
+async function callOpenRouter(key, prompt) {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-3.3-70b-instruct:free',
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'İstek başarısız');
+  return data?.choices?.[0]?.message?.content || '(boş cevap)';
+}
+
+const PROVIDERS = [
+  { id: 'gemini', name: 'Gemini', keyId: 'key-gemini', fn: callGemini },
+  { id: 'groq', name: 'Groq (Llama 3.3)', keyId: 'key-groq', fn: callGroq },
+  { id: 'openrouter', name: 'OpenRouter (Llama 3.3)', keyId: 'key-openrouter', fn: callOpenRouter },
+];
+
+async function send() {
+  const prompt = input.value.trim();
+  if (!prompt) return;
+
+  const activeProviders = PROVIDERS.filter(p => getKey(p.keyId));
+  if (activeProviders.length === 0) {
+    alert('Lütfen en az bir API anahtarı girin.');
+    keysPanel.classList.add('open');
+    return;
+  }
+
+  if (emptyState) emptyState.remove();
+
+  const userMsg = document.createElement('div');
+  userMsg.className = 'user-msg';
+  userMsg.textContent = prompt;
+  main.appendChild(userMsg);
+
+  const answers = document.createElement('div');
+  answers.className = 'answers';
+  main.appendChild(answers);
+
+  const cardEls = {};
+  activeProviders.forEach(p => {
+    const card = document.createElement('div');
+    card.className = `card ${p.id}`;
+    card.innerHTML = `
+      <div class="card-head">
+        <span class="card-name">${p.name}</span>
+        <span class="card-status">yanıtlıyor</span>
+      </div>
+      <div class="card-body loading"><span class="dots"><span></span><span></span><span></span></span></div>
+    `;
+    answers.appendChild(card);
+    cardEls[p.id] = card;
+  });
+
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  main.scrollTop = main.scrollHeight;
+
+  await Promise.all(activeProviders.map(async (p) => {
+    const card = cardEls[p.id];
+    const status = card.querySelector('.card-status');
+    const body = card.querySelector('.card-body');
+    try {
+      const key = getKey(p.keyId);
+      const text = await p.fn(key, prompt);
+      status.textContent = 'tamamlandı';
+      body.className = 'card-body';
+      body.textContent = text;
+    } catch (err) {
+      status.textContent = 'hata';
+      body.className = 'card-body error';
+      body.textContent = 'Hata: ' + err.message;
+    }
+    main.scrollTop = main.scrollHeight;
+  }));
+
+  sendBtn.disabled = false;
+  main.scrollTop = main.scrollHeight;
+}
+</script>
+</body>
+</html>
