@@ -256,7 +256,40 @@
   footer .bar {
     display: flex;
     gap: 8px;
-< truncated lines 259-293 >
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 6px 6px 6px 14px;
+  }
+  footer textarea {
+    flex: 1;
+    resize: none;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 8px 0;
+    font-size: 14.5px;
+    font-family: inherit;
+    max-height: 100px;
+  }footer textarea:focus { outline: none; }
+  footer button {
+    background: var(--cyan);
+    color: #05171f;
+    border: none;
+    border-radius: 12px;
+    padding: 0 18px;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  footer button:disabled { opacity: 0.4; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
     <div class="brand">
       <div class="core" id="core">
         <svg viewBox="0 0 40 40">
@@ -514,40 +547,4 @@ async function send() {
 updateProviderCount();
 </script>
 </body>
-  gap: 8px;
-    width: 100%;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 6px 6px 6px 14px;
-  }
-  footer textarea {
-    flex: 1;
-    resize: none;
-    background: transparent;
-    border: none;
-    color: var(--text);
-    padding: 8px 0;
-    font-size: 14.5px;
-    font-family: inherit;
-    max-height: 100px;
-  }
-  footer textarea:focus { outline: none; }
-  footer button {
-    background: var(--cyan);
-    color: #05171f;
-    border: none;
-    border-radius: 12px;
-    padding: 0 18px;
-    font-weight: 700;
-    font-size: 13.5px;
-    cursor: pointer;
-    letter-spacing: 0.02em;
-  }
-  footer button:disabled { opacity: 0.4; }
-</style>
-</head>
-<body>
-<div class="app">
-  <header>
 </html>
