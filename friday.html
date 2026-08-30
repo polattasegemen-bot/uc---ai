@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Friday</title>
+<style>
+  :root{
+    --bg: #1a1e26;
+    --bg-2: #22272f;
+    --panel: #262c36;
+    --line: #38404e;
+    --line-bright: #4a5568;
+    --text: #eef1f5;
+    --muted: #9aa3b2;
+    --green: #4ade80;
+    --amber: #ffc470;
+    --danger: #ff7a7a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+  }
+  .mono { font-family: 'SF Mono', ui-monospace, Menlo, monospace; }
+
+  /* Sabit ızgara arka planı: iOS'ta background-attachment:fixed kaybolabildiği için
+     bunun yerine gerçek position:fixed bir katman kullanıyoruz. */
+  .grid-layer {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(74,222,128,0.08), transparent 55%),
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 100% 100%, 34px 34px, 34px 34px;
+    opacity: 0.55;
+  }
+
+  .app { display: flex; flex-direction: column; min-height: 100vh; position: relative; }
+
+  header {
+    padding: 16px 16px 14px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(38,44,54,0.92), rgba(26,30,38,0.5));
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+
+  .core { width: 34px; height: 34px; position: relative; flex-shrink: 0; }
+  .core svg { width: 100%; height: 100%; }
+  .core .ring-outer {
+    fill: none; stroke: var(--green); stroke-width: 1.4; opacity: 0.55;
+    stroke-dasharray: 4 5; transform-origin: center; animation: spin 14s linear infinite;
+  }
+  .core .ring-inner {
+    fill: none; stroke: var(--amber); stroke-width: 1.4; opacity: 0.85;
+    stroke-dasharray: 10 6; transform-origin: center; animation: spin-rev 9s linear infinite;
+  }
+  .core .dot { fill: var(--green); filter: drop-shadow(0 0 4px var(--green)); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spin-rev { to { transform: rotate(-360deg); } }
+  .core.active .ring-outer { animation-duration: 2.2s; }
+  .core.active .ring-inner { animation-duration: 1.4s; }
+  .core.active .dot { animation: pulse-dot 1.1s ease-in-out infinite; }
+  @keyframes pulse-dot { 0%,100%{ r:2.4; opacity:1 } 50%{ r:3.4; opacity:0.6 } }
+
+  header h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .settings-btn {
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; width: 36px; height: 36px; font-size: 15px; cursor: pointer;
+  }
+  .settings-btn:active { border-color: var(--green); color: var(--green); }
+
+  /* ---------- Ayarlar: sabit konumlu pop-up (nerede olursanız olun üstte açılır) ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(10,12,16,0.65);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 60px 14px 14px;
+  }
+  .overlay.open { display: flex; }
+  .settings-modal {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .settings-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .settings-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+  .close-btn {
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--muted);
+    border-radius: 8px; width: 30px; height: 30px; font-size: 14px; cursor: pointer;
+  }
+  .keys-note {
+    font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0 0 14px;
+    border-left: 2px solid var(--green); padding-left: 10px;
+  }
+  .prov-row {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .prov-row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .prov-name { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--text); }
+  .prov-row input[type="password"] {
+    width: 100%;
+    background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    padding: 9px 10px; border-radius: 8px; font-size: 16px;
+  }
+  .prov-row input[type="password"]:focus { outline: none; border-color: var(--green); }
+  .prov-status { font-size: 10.5px; color: var(--muted); margin: 6px 0 0; min-height: 12px; }
+  .prov-status.disabled { color: var(--danger); }
+
+  /* Açma/kapama anahtarı */
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: var(--line-bright); border-radius: 999px; transition: .2s;
+  }
+  .switch .slider::before {
+    content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px;
+    background: #cfd6e0; border-radius: 50%; transition: .2s;
+  }
+  .switch input:checked + .slider { background: var(--green); }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: #0a0e14; }
+
+  .key-status { font-size: 10.5px; color: var(--green); margin-top: 2px; height: 12px; }
+
+  /* ---------- Main / messages ---------- */
+  main { flex: 1; overflow-y: auto; padding: 18px 12px 108px; display: flex; flex-direction: column; gap: 16px; }
+
+  .msg { max-width: 88%; }
+  .msg.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #2a3444, #1c232e);
+    border: 1px solid var(--line-bright);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 4px 14px 14px 14px;
+    font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  }
+
+  .msg.friday {
+    align-self: flex-start; position: relative;
+    padding: 12px 14px 12px 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--green);
+    border-radius: 4px 12px 12px 4px;
+  }
+  .msg.friday.error { border-left-color: var(--danger); }
+  .msg.friday .body { font-size: 15px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .msg.friday.error .body { color: var(--danger); }
+
+  .friday-label {
+    font-size: 10px; font-weight: 700; color: var(--green); margin-bottom: 5px;
+    letter-spacing: 0.12em; text-transform: uppercase; display: flex; align-items: center; gap: 6px;
+  }
+  .friday-label::before { content: ''; width: 5px; height: 5px; background: var(--green); border-radius: 50%; box-shadow: 0 0 5px var(--green); }
+
+  .thinking { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; letter-spacing: 0.03em; }
+  .dots span {
+    display: inline-block; width: 4px; height: 4px; background: var(--green); border-radius: 50%;
+    margin-right: 3px; animation: blink 1.1s infinite ease-in-out;
+  }
+  .dots span:nth-child(2) { animation-delay: .18s; }
+  .dots span:nth-child(3) { animation-delay: .36s; }
+  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+  .copy-btn {
+    margin-top: 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 10.5px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  .copy-btn:active { border-color: var(--green); color: var(--green); }
+
+  .empty { color: var(--muted); font-size: 13.5px; text-align: center; margin-top: 44px; line-height: 1.7; padding: 0 24px; }
+  .empty .em-title { color: var(--text); font-size: 15px; font-weight: 700; margin-bottom: 8px; letter-spacing: 0.02em; }
+
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(0deg, var(--bg) 60%, transparent);
+    padding: 16px 12px calc(12px + env(safe-area-inset-bottom));
+    display: flex; gap: 8px;
+  }
+  footer .bar {
+    display: flex; gap: 8px; width: 100%;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 6px 6px 6px 14px;
+  }
+  footer textarea {
+    flex: 1; resize: none; background: transparent; border: none; color: var(--text);
+    padding: 8px 0; font-size: 16px; font-family: inherit; max-height: 100px;
+  }
+  footer textarea:focus { outline: none; }
+  footer button {
+    background: var(--green); color: #08170f; border: none; border-radius: 12px;
+    padding: 0 18px; font-weight: 700; font-size: 13.5px; cursor: pointer; letter-spacing: 0.02em;
+  }
+  footer button:disabled { opacity: 0.4; }
+
+  /* ---------- Sohbet geçmişi çekmecesi ---------- */
+  .history-scrim {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(6,8,10,0.6);
+    display: none;
+  }
+  .history-scrim.open { display: block; }
+  .history-drawer {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 80%; max-width: 300px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    z-index: 61;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    display: flex; flex-direction: column;
+    padding: 16px 10px;
+  }
+  .history-drawer.open { transform: translateX(0); }
+  .history-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 12px; }
+  .history-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+  .history-new {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 10px 12px; font-size: 13.5px; font-weight: 600;
+    margin: 0 6px 12px; cursor: pointer;
+  }
+  .history-new:active { border-color: var(--green); }
+  .history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .history-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 10px; border-radius: 9px; cursor: pointer;
+  }
+  .history-item:active { background: var(--bg-2); }
+  .history-item.current { background: var(--bg-2); border: 1px solid var(--line); }
+  .history-item .h-title {
+    flex: 1; font-size: 13px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .history-item .h-del {
+    background: none; border: none; color: var(--muted);
+    font-size: 13px; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
+  }
+  .history-item .h-del:active { color: var(--danger); }
+  .history-empty { color: var(--muted); font-size: 12.5px; text-align: center; padding: 20px 10px; }
+</style>
+</head>
+<body>
+<div class="grid-layer"></div>
+
+<div class="history-scrim" id="historyScrim"></div>
+<div class="history-drawer" id="historyDrawer">
+  <div class="history-head">
+    <h2>Sohbetler</h2>
+    <button class="close-btn" id="closeHistory">✕</button>
+  </div>
+  <button class="history-new" id="historyNewBtn">✚ Yeni sohbet</button>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <button class="settings-btn" id="historyToggle">☰</button>
+      <div class="core" id="core">
+        <svg viewBox="0 0 40 40">
+          <circle class="ring-outer" cx="20" cy="20" r="17"></circle>
+          <circle class="ring-inner" cx="20" cy="20" r="11"></circle>
+          <circle class="dot" cx="20" cy="20" r="2.6"></circle>
+        </svg>
+      </div>
+      <div>
+        <h1>FRIDAY</h1>
+        <p id="providerCount" class="mono">SISTEM BEKLEMEDE</p>
+      </div>
+    </div>
+    <button class="settings-btn" id="keysToggle">⚙</button>
+  </header>
+
+  <div class="overlay" id="overlay">
+    <div class="settings-modal">
+      <div class="settings-head">
+        <h2>Ayarlar</h2>
+        <button class="close-btn" id="closeSettings">✕</button>
+      </div>
+      <p class="keys-note">Anahtarlar yalnızca bu cihazın tarayıcısında saklanır, hiçbir sunucuya gönderilmez. Açma/kapama düğmesiyle bir modeli anahtarı silmeden devre dışı bırakabilirsiniz.</p>
+
+      <div class="prov-row">
+        <div class="prov-row-head">
+          <span class="prov-name mono">GEMINI</span>
+          <label class="switch"><input type="checkbox" id="enabled-gemini" checked><span class="slider"></span></label>
+        </div>
+        <input type="password" id="key-gemini" placeholder="API anahtarı">
+        <p class="prov-status" id="status-gemini"></p>
+      </div>
+
+      <div class="prov-row">
+        <div class="prov-row-head">
+          <span class="prov-name mono">GROQ</span>
+          <label class="switch"><input type="checkbox" id="enabled-groq" checked><span class="slider"></span></label>
+        </div>
+        <input type="password" id="key-groq" placeholder="API anahtarı">
+        <p class="prov-status" id="status-groq"></p>
+      </div>
+
+      <div class="prov-row">
+        <div class="prov-row-head">
+          <span class="prov-name mono">OPENROUTER</span>
+          <label class="switch"><input type="checkbox" id="enabled-openrouter" checked><span class="slider"></span></label>
+        </div>
+        <input type="password" id="key-openrouter" placeholder="API anahtarı">
+        <p class="prov-status" id="status-openrouter"></p>
+      </div>
+
+      <p class="key-status mono" id="keyStatus"></p>
+    </div>
+  </div>
+
+  <main id="main">
+    <div class="empty" id="emptyState">
+      <div class="em-title">Friday çevrimiçi</div>
+      Ayarlar (⚙) simgesinden en az bir API anahtarı girin. Friday, arka planda birden fazla yapay zeka modeline danışıp size tek, birleşik bir cevap verir.
+    </div>
+  </main>
+
+  <footer>
+    <div class="bar">
+      <textarea id="input" placeholder="Friday'e sor..." rows="1"></textarea>
+      <button id="sendBtn">Gönder</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+const keysToggle = document.getElementById('keysToggle');
+const overlay = document.getElementById('overlay');
+const closeSettings = document.getElementById('closeSettings');
+const providerCount = document.getElementById('providerCount');
+const keyStatus = document.getElementById('keyStatus');
+const core = document.getElementById('core');
+const main = document.getElementById('main');
+const emptyState = document.getElementById('emptyState');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+
+const PROV_IDS = ['gemini', 'groq', 'openrouter'];
+const OLD_PREFIX = 'jarvis_';   // eski sürümden geçiş için
+const NEW_PREFIX = 'friday_';
+
+// Eski anahtarları (varsa) yeni isimle taşı
+PROV_IDS.forEach(id => {
+  const keyField = 'key-' + id;
+  let val = localStorage.getItem(NEW_PREFIX + keyField);
+  if (!val) {
+    const old = localStorage.getItem(OLD_PREFIX + keyField);
+    if (old) { val = old; localStorage.setItem(NEW_PREFIX + keyField, old); }
+  }
+  if (val) document.getElementById(keyField).value = val;
+
+  const enabledSaved = localStorage.getItem(NEW_PREFIX + 'enabled-' + id);
+  document.getElementById('enabled-' + id).checked = enabledSaved === null ? true : enabledSaved === '1';
+});
+
+// Bir istek sırasında limit/kota hatası alınca o sağlayıcı bu oturum boyunca otomatik pasif olur
+const autoDisabled = new Set();
+
+function isQuotaError(message) {
+  const m = (message || '').toLowerCase();
+  return m.includes('quota') || m.includes('429') || m.includes('rate limit') ||
+         m.includes('resource_exhausted') || m.includes('too many requests') ||
+         m.includes('high demand') || m.includes('overloaded');
+}
+
+function setProviderStatus(id, text, isDisabled) {
+  const el = document.getElementById('status-' + id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.classList.toggle('disabled', !!isDisabled);
+}
+
+function updateProviderCount() {
+  const n = activeProviders().length;
+  providerCount.textContent = n === 0 ? 'SISTEM BEKLEMEDE' : `${n} MODEL AKTIF`;
+}
+
+function persistKey(id) {
+  const val = document.getElementById('key-' + id).value.trim();
+  if (val) localStorage.setItem(NEW_PREFIX + 'key-' + id, val);
+  else localStorage.removeItem(NEW_PREFIX + 'key-' + id);
+}
+function persistEnabled(id) {
+  const checked = document.getElementById('enabled-' + id).checked;
+  localStorage.setItem(NEW_PREFIX + 'enabled-' + id, checked ? '1' : '0');
+}
+
+PROV_IDS.forEach(id => {
+  document.getElementById('key-' + id).addEventListener('input', () => {
+    persistKey(id);
+    keyStatus.textContent = 'KAYDEDILDI';
+    setTimeout(() => keyStatus.textContent = '', 1200);
+    updateProviderCount();
+  });
+  document.getElementById('enabled-' + id).addEventListener('change', () => {
+    persistEnabled(id);
+    if (document.getElementById('enabled-' + id).checked) {
+      autoDisabled.delete(id);
+      setProviderStatus(id, '');
+    }
+    updateProviderCount();
+  });
+});
+
+function openSettings() { overlay.classList.add('open'); }
+function closeSettingsFn() { overlay.classList.remove('open'); }
+keysToggle.addEventListener('click', openSettings);
+closeSettings.addEventListener('click', closeSettingsFn);
+overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettingsFn(); });
+
+if (PROV_IDS.every(id => !document.getElementById('key-' + id).value)) {
+  openSettings();
+}
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 100) + 'px';
+});
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+sendBtn.addEventListener('click', send);
+
+function getKey(id) { return document.getElementById('key-' + id).value.trim(); }
+function isEnabled(id) { return document.getElementById('enabled-' + id).checked; }
+
+// ---------- Sohbet geçmişi yönetimi ----------
+const historyToggle = document.getElementById('historyToggle');
+const historyScrim = document.getElementById('historyScrim');
+const historyDrawer = document.getElementById('historyDrawer');
+const closeHistory = document.getElementById('closeHistory');
+const historyNewBtn = document.getElementById('historyNewBtn');
+const historyList = document.getElementById('historyList');
+
+function loadConversations() {
+  try { return JSON.parse(localStorage.getItem(NEW_PREFIX + 'conversations') || '[]'); }
+  catch (e) { return []; }
+}
+function saveConversations() {
+  localStorage.setItem(NEW_PREFIX + 'conversations', JSON.stringify(conversations));
+}
+
+let conversations = loadConversations();
+let currentConv;
+
+function makeConv() {
+  return { id: 'c' + Date.now() + Math.random().toString(36).slice(2, 6), title: 'Yeni sohbet', messages: [], updatedAt: Date.now() };
+}
+
+function renderMainFromConv(conv) {
+  main.innerHTML = '';
+  if (!conv.messages || conv.messages.length === 0) {
+    const el = document.createElement('div');
+    el.className = 'empty';
+    el.id = 'emptyState';
+    el.innerHTML = '<div class="em-title">Friday çevrimiçi</div>Ayarlar (⚙) simgesinden en az bir API anahtarı girin. Friday, arka planda birden fazla yapay zeka modeline danışıp size tek, birleşik bir cevap verir.';
+    main.appendChild(el);
+    return;
+  }
+  conv.messages.forEach(m => addMsg(m.role, m.content));
+}
+
+function startNewConversation() {
+  currentConv = makeConv();
+  renderMainFromConv(currentConv);
+  renderHistoryList();
+}
+
+function switchConversation(id) {
+  const found = conversations.find(c => c.id === id);
+  if (!found) return;
+  currentConv = found;
+  renderMainFromConv(currentConv);
+  renderHistoryList();
+  closeHistoryDrawer();
+}
+
+function deleteConversation(id) {
+  conversations = conversations.filter(c => c.id !== id);
+  saveConversations();
+  if (currentConv && currentConv.id === id) {
+    if (conversations.length > 0) {
+      currentConv = conversations[0];
+      renderMainFromConv(currentConv);
+    } else {
+      startNewConversation();
+    }
+  }
+  renderHistoryList();
+}
+
+function renderHistoryList() {
+  historyList.innerHTML = '';
+  if (conversations.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'history-empty';
+    empty.textContent = 'Henüz kayıtlı sohbet yok.';
+    historyList.appendChild(empty);
+    return;
+  }
+  conversations.forEach(conv => {
+    const item = document.createElement('div');
+    item.className = 'history-item' + (currentConv && conv.id === currentConv.id ? ' current' : '');
+    const title = document.createElement('div');
+    title.className = 'h-title';
+    title.textContent = conv.title || 'Yeni sohbet';
+    item.appendChild(title);
+    const del = document.createElement('button');
+    del.className = 'h-del';
+    del.textContent = '🗑';
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm('Bu sohbeti silmek istediğinize emin misiniz?')) deleteConversation(conv.id);
+    });
+    item.appendChild(del);
+    item.addEventListener('click', () => switchConversation(conv.id));
+    historyList.appendChild(item);
+  });
+}
+
+function openHistoryDrawer() {
+  renderHistoryList();
+  historyScrim.classList.add('open');
+  historyDrawer.classList.add('open');
+}
+function closeHistoryDrawer() {
+  historyScrim.classList.remove('open');
+  historyDrawer.classList.remove('open');
+}
+historyToggle.addEventListener('click', openHistoryDrawer);
+closeHistory.addEventListener('click', closeHistoryDrawer);
+historyScrim.addEventListener('click', closeHistoryDrawer);
+historyNewBtn.addEventListener('click', () => { startNewConversation(); closeHistoryDrawer(); });
+
+// Başlangıçta en son sohbeti aç, yoksa yeni bir tane başlat
+if (conversations.length > 0) {
+  currentConv = conversations[0];
+  renderMainFromConv(currentConv);
+} else {
+  startNewConversation();
+}
+
+function toGeminiContents(promptText) {
+  const contents = currentConv.messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+  contents.push({ role: 'user', parts: [{ text: promptText }] });
+  return contents;
+}
+function toOpenAiMessages(promptText) {
+  const messages = currentConv.messages.map(m => ({ role: m.role, content: m.content }));
+  messages.push({ role: 'user', content: promptText });
+  return messages;
+}
+
+async function callGemini(key, promptText) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: toGeminiContents(promptText) })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'İstek başarısız');
+  return data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+}
+
+async function callOpenAiCompatible(baseUrl, key, model, promptText) {
+  const res = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model, messages: toOpenAiMessages(promptText) })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'İstek başarısız');
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+// serviceId: hangi anahtar/açma-kapama düğmesine bağlı olduğu (kota hatasında onu pasif yapmak için)
+function activeProviders() {
+  const list = [];
+  const g = getKey('gemini'), gq = getKey('groq'), or = getKey('openrouter');
+
+  if (g && isEnabled('gemini') && !autoDisabled.has('gemini'))
+    list.push({ id: 'gemini', serviceId: 'gemini', name: 'Gemini', run: (p) => callGemini(g, p) });
+
+  if (gq && isEnabled('groq') && !autoDisabled.has('groq'))
+    list.push({ id: 'groq', serviceId: 'groq', name: 'Groq', run: (p) => callOpenAiCompatible('https://api.groq.com/openai/v1/chat/completions', gq, 'openai/gpt-oss-120b', p) });
+
+  if (or && isEnabled('openrouter') && !autoDisabled.has('openrouter')) {
+    list.push({ id: 'openrouter-a', serviceId: 'openrouter', name: 'OpenRouter A', run: (p) => callOpenAiCompatible('https://openrouter.ai/api/v1/chat/completions', or, 'openrouter/free', p) });
+    list.push({ id: 'openrouter-b', serviceId: 'openrouter', name: 'OpenRouter B', run: (p) => callOpenAiCompatible('https://openrouter.ai/api/v1/chat/completions', or, 'openai/gpt-oss-20b:free', p) });
+  }
+  return list;
+}
+
+async function synthesize(chair, userPrompt, rawAnswers) {
+  const combined = rawAnswers.map((a, i) => `Görüş ${i + 1}: ${a.text}`).join('\n\n');
+  const synthPrompt =
+    `Kullanıcının sorusu: "${userPrompt}"\n\n` +
+    `Aşağıda bu soruya farklı yapay zeka modellerinden gelen görüşler var:\n\n${combined}\n\n` +
+    `Bu görüşleri değerlendirip, kullanıcıya tek, doğal, akıcı bir cevap ver. ` +
+    `Modellerden veya "görüşlerden" bahsetme, sanki tek bir asistansın gibi, doğrudan kullanıcıya hitap ederek cevapla. Türkçe cevap ver.`;
+  return await chair.run(synthPrompt);
+}
+
+function saveExchange(userText, assistantText) {
+  const isNew = !conversations.includes(currentConv);
+  currentConv.messages.push({ role: 'user', content: userText });
+  currentConv.messages.push({ role: 'assistant', content: assistantText });
+  currentConv.updatedAt = Date.now();
+  if (currentConv.title === 'Yeni sohbet') {
+    currentConv.title = userText.length > 34 ? userText.slice(0, 34) + '…' : userText;
+  }
+  if (isNew) {
+    conversations.unshift(currentConv);
+  } else {
+    conversations = conversations.filter(c => c !== currentConv);
+    conversations.unshift(currentConv);
+  }
+  saveConversations();
+  renderHistoryList();
+}
+
+function addMsg(role, text, isError) {
+  const emptyEl = document.getElementById('emptyState');
+  if (emptyEl) emptyEl.remove();
+  const el = document.createElement('div');
+  el.className = 'msg ' + (role === 'user' ? 'user' : 'friday' + (isError ? ' error' : ''));
+  if (role === 'user') {
+    el.textContent = text;
+  } else {
+    const label = document.createElement('div');
+    label.className = 'friday-label';
+    label.textContent = 'FRIDAY';
+    el.appendChild(label);
+    const body = document.createElement('div');
+    body.className = 'body';
+    body.textContent = text;
+    el.appendChild(body);
+    if (!isError) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = 'Kopyala';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(text).then(() => {
+          copyBtn.textContent = 'Kopyalandı ✓';
+          setTimeout(() => copyBtn.textContent = 'Kopyala', 1200);
+        });
+      });
+      el.appendChild(copyBtn);
+    }
+  }
+  main.appendChild(el);
+  main.scrollTop = main.scrollHeight;
+  return el;
+}
+
+function addThinking() {
+  const emptyEl = document.getElementById('emptyState');
+  if (emptyEl) emptyEl.remove();
+  const el = document.createElement('div');
+  el.className = 'msg friday';
+  el.innerHTML = `<div class="friday-label">FRIDAY</div><div class="thinking">Modellere danışıyor <span class="dots"><span></span><span></span><span></span></span></div>`;
+  main.appendChild(el);
+  main.scrollTop = main.scrollHeight;
+  return el;
+}
+
+async function send() {
+  const prompt = input.value.trim();
+  if (!prompt) return;
+
+  const providers = activeProviders();
+  if (providers.length === 0) {
+    alert('Lütfen en az bir API anahtarı girin ve ilgili düğmeyi açın.');
+    openSettings();
+    return;
+  }
+
+  addMsg('user', prompt);
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+  core.classList.add('active');
+
+  const thinkingEl = addThinking();
+
+  try {
+    const results = await Promise.allSettled(providers.map(p => p.run(prompt)));
+    const rawAnswers = [];
+    results.forEach((r, i) => {
+      const p = providers[i];
+      if (r.status === 'fulfilled' && r.value && r.value.trim()) {
+        rawAnswers.push({ provider: p, text: r.value.trim() });
+      } else if (r.status === 'rejected') {
+        const msg = r.reason?.message || '';
+        if (isQuotaError(msg)) {
+          autoDisabled.add(p.serviceId);
+          setProviderStatus(p.serviceId, 'Pasif: kota/limit doldu', true);
+        }
+      }
+    });
+
+    thinkingEl.remove();
+    updateProviderCount();
+
+    if (rawAnswers.length === 0) {
+      addMsg('assistant', 'Hiçbir modelden cevap alamadım. Anahtarlarınızı ve açma/kapama düğmelerini kontrol edin veya birazdan tekrar deneyin.', true);
+    } else if (rawAnswers.length === 1) {
+      const text = rawAnswers[0].text;
+      addMsg('assistant', text);
+      saveExchange(prompt, text);
+    } else {
+      const chair = rawAnswers[0].provider;
+      let finalText;
+      try {
+        finalText = await synthesize(chair, prompt, rawAnswers);
+      } catch (e) {
+        finalText = rawAnswers[0].text; // birleştirme başarısız olursa ilk cevabı göster
+      }
+      addMsg('assistant', finalText || rawAnswers[0].text);
+      saveExchange(prompt, finalText || rawAnswers[0].text);
+    }
+  } catch (err) {
+    thinkingEl.remove();
+    addMsg('assistant', 'Bir hata oluştu: ' + err.message, true);
+  }
+
+  sendBtn.disabled = false;
+  core.classList.remove('active');
+}
+
+updateProviderCount();
+</script>
+</body>
+</html>
